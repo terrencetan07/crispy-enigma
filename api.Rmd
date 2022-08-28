@@ -1,0 +1,74 @@
+---
+title: "api.Rmd"
+output: html_document
+---
+
+load packages
+```{r}
+packages <- c("dplyr","magrittr","httr")
+
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T, quietly = T)
+}
+
+setwd("D:/projects/r_shiny_reproducible")
+```
+
+read dataset
+```{r}
+HDB_PI <- read.csv("D:/projects/r_shiny_reproducible/data/hdb-property-information.csv", stringsAsFactors = F)
+```
+
+identify variables for api, blk number and street names
+```{r}
+head(HDB_PI)
+HDB_PI_ADD <- HDB_PI%>%
+  dplyr::mutate(address = paste(blk_no, street))%>%
+  dplyr::select(address)
+```
+
+the common API from onemap requires the following format: https://developers.onemap.sg/commonapi/search?searchVal=revenue&returnGeom=Y&getAddrDetails=Y&pageNum=1
+lets create a simple loop to retrieve the Postal Code, X & Y coordinates
+```{r}
+output_df <- data.frame(matrix(nrow = nrow(HDB_PI_ADD),ncol = 3))
+colnames(output_df) <- c("Postal","Long","Lat")
+counter <- 0
+  
+for (i in 1:nrow(HDB_PI_ADD)){
+  url <- "https://developers.onemap.sg/commonapi/search"
+  query <- list(searchVal = HDB_PI_ADD[i,], returnGeom = "Y", getAddrDetails = "Y",pageNum = 1)
+  res <- GET(url, query = query, verbose())
+  #evaluate content of res
+  if (content(res)$found>0){
+    output_df[i,1] <- content(res)$results[[1]]$POSTAL
+    output_df[i,2] <- content(res)$results[[1]]$LATITUDE
+    output_df[i,3] <- content(res)$results[[1]]$LONGITUDE
+    }
+
+  x <- round(i*100/nrow(HDB_PI_ADD),0)
+  if (x>counter){
+    print(paste0(x,"% is completed"))
+    counter <- x
+    }
+  Sys.sleep(0.2)
+}
+
+
+```
+
+Some addresses were not found in the API, lets manually impute them
+```{r}
+which(is.na(output_df$Postal))
+HDB_PI_ADD[6067,]
+HDB_PI_ADD[7773,]
+#there were 2 addresses not found in the API, we will add these manually
+output_df[6067,2:4] <- c("738620","1.4344","103.7797")
+output_df[6067,2:4] <- c("050005","1.2812","103.8434")
+
+write.csv(output_df,file = "D:/projects/r_shiny_reproducible/data/hdb_pi_postalXY.csv")
+
+```
+
