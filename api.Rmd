@@ -2,6 +2,7 @@
 title: "api.Rmd"
 output: html_document
 ---
+API script is used to acquire postal codes from the addresses in the HDB dataset
 
 load packages
 ```{r}
@@ -73,4 +74,4 @@ output_df[6067,] <- c("738620","","")
 write.csv(output_df,file = "D:/projects/r_shiny_reproducible/data/hdb_pi_postalXY.csv")
 
 ```
-now to create the 
+
